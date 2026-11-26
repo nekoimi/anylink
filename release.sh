@@ -2,17 +2,9 @@
 
 #github action release.sh
 
-set -x
-function RETVAL() {
-  rt=$1
-  if [ $rt != 0 ]; then
-    echo $rt
-    exit 1
-  fi
-}
+set -euo pipefail
 
-#当前目录
-cpath=$(pwd)
+image=${1:?Usage: bash release.sh <image>}
 
 ver=$(cat version)
 echo "当前版本 $ver"
@@ -21,21 +13,22 @@ rm -rf artifact-dist
 mkdir artifact-dist
 
 function archive() {
-  arch=$1
+  local arch=$1
   #echo "整理部署文件 $arch"
-  arch_name=${arch//\//-}
+  local arch_name=${arch//\//-}
   echo $arch_name
 
-  deploy="anylink-$ver-$arch_name"
-  docker container rm $deploy
-  docker container create --platform $arch --name $deploy bjdgyc/anylink:$ver
+  local deploy="anylink-$ver-$arch_name"
+  local container_id
+  container_id=$(docker container create --pull=always --platform "$arch" "$image")
   rm -rf anylink-deploy
-  docker cp -a $deploy:/app ./anylink-deploy
+  docker cp -a "$container_id:/app" ./anylink-deploy
+  docker container rm "$container_id"
 
   ls -lh anylink-deploy
 
-  tar zcf ${deploy}.tar.gz anylink-deploy
-  mv ${deploy}.tar.gz artifact-dist/
+  tar zcf "${deploy}.tar.gz" anylink-deploy
+  mv "${deploy}.tar.gz" artifact-dist/
 }
 
 echo "copy二进制文件"
